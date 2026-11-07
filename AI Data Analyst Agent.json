@@ -1,0 +1,176 @@
+{
+  "name": "AI Data Analyst Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        0,
+        0
+      ],
+      "id": "53abbf21-ff6a-480d-b0c0-41a7e97f53e0",
+      "name": "When chat message received",
+      "webhookId": "c8fabc14-0daa-4ba0-8ecb-6f8a361173c8"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "You are an expert Autonomous Data Analyst.\nYour objective is to retrieve data via PostgreSQL and write an executive report.\n\n1. DATA RETRIEVAL:\n   - Always run SQL queries via the \"query_database\" tool to fetch real figures. \n   - Never hallucinate data.\n\n2. REPORT STRUCTURE:\n   Write your analysis using these exact headers:\n   ## Executive Summary\n   ## Key Financial Figures\n   ## Analytical Findings & Efficiency Insights\n   ## Strategic Recommendations\n\n3. CHART DATA BLOCK (CRITICAL):\n   At the very bottom of your response, you MUST append a hidden data block containing the years and net cost values formatted exactly like this:\n   <CHART_DATA>\n   {\"labels\": [\"2019\", \"2020\", \"2021\", \"2022\", \"2023\"], \"values\": [34.3, 37.4, 40.2, 42.8, 46.9]}\n   </CHART_DATA>",
+          "maxIterations": 10,
+          "forceToolCallOnFirstIteration": true
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        224,
+        0
+      ],
+      "id": "682a6569-577a-4217-a5b8-7df74af1c3e8",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "contextWindowLength": 3
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        240,
+        208
+      ],
+      "id": "da3c0c81-1c52-4895-87dd-e14cb3af711a",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Execute a read-only SQL query against the analytics_db PostgreSQL database. Input must be a valid SQL SELECT statement.",
+        "operation": "executeQuery",
+        "query": "{{ $fromAI('query', 'The SQL query to execute') }}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.8,
+      "position": [
+        384,
+        208
+      ],
+      "id": "4e9c6a20-b2e2-49c6-91e6-205b516e1250",
+      "name": "query_database",
+      "credentials": {
+        "postgres": {
+          "id": "pGZXw1DwR7sj3gbH",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "openrouter/free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        96,
+        208
+      ],
+      "id": "ef9a9994-3ed6-4719-9317-c8753fbff0e5",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "48VHsCyGdOB46QR9",
+          "name": "OpenRouter account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Grab the text output from the AI Agent\nlet text = $input.item.json.output || $input.item.json.text || \"\";\n\n// Look for the hidden data block\nconst regex = /<CHART_DATA>\\s*({[\\s\\S]*?})\\s*<\\/CHART_DATA>/;\nconst match = text.match(regex);\n\nif (match && match[1]) {\n    try {\n        const data = JSON.parse(match[1]);\n        const labels = data.labels || [];\n        const values = data.values || [];\n        \n        // Build the strict Chart.js schema\n        const chartConfig = {\n            type: 'line',\n            data: {\n                labels: labels,\n                datasets: [{\n                    label: 'Net Cost ($B)',\n                    data: values,\n                    backgroundColor: 'rgba(54, 162, 235, 0.2)',\n                    borderColor: 'rgba(54, 162, 235, 1)',\n                    borderWidth: 2,\n                    fill: true\n                }]\n            },\n            options: {\n                responsive: true,\n                plugins: {\n                    title: { display: true, text: 'Department of Energy Net Cost Trend' },\n                    legend: { display: false }\n                }\n            }\n        };\n        \n        // Fully URL-encode the configuration\n        const encoded = encodeURIComponent(JSON.stringify(chartConfig));\n        const url = `https://quickchart.io/chart?c=${encoded}&w=700&h=350&bkg=white`;\n        \n        const markdownImage = `\\n\\n## Visual Representation\\n![Net Cost Trend](${url})\\n\\n`;\n        \n        // Replace the hidden data block with the actual Markdown image\n        text = text.replace(regex, markdownImage);\n        \n    } catch (e) {\n        // Fallback if parsing fails\n    }\n}\n\n// Return the final formatted text back to the chat interface\nreturn {\n    json: {\n        output: text\n    }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        0
+      ],
+      "id": "05dd74ca-8a44-4a71-9caf-22cafa28f86c",
+      "name": "generate_chart"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "query_database": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "generate_chart",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "099c84c4-7914-4d68-9f0a-b577e06e2a72",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2447ecf51ba1779b4278d5d2b6f4af68baf3903df3acc8749233533bd1439843"
+  },
+  "nodeGroups": [],
+  "id": "W9Qr3qTWjFXgZ0X5",
+  "tags": []
+}
