@@ -40,6 +40,7 @@ This guarantees a **100% reliable chart generation** on every run, regardless of
 
 ### 1. Database Setup
 Create a PostgreSQL table named `federal_financials` and populate it with your data.
+
 ```sql
 CREATE TABLE federal_financials (
     id SERIAL PRIMARY KEY,
@@ -50,3 +51,31 @@ CREATE TABLE federal_financials (
     earned_revenue_billions NUMERIC(10,2),
     net_cost_billions NUMERIC(10,2)
 );
+```
+
+### 2. Import the Workflow
+1. Download the `AI_Data_Analyst_Agent.json` file from this repository.
+2. Open your n8n workspace, click **Add Workflow**, and select **Import from File**.
+3. Upload the `.json` file.
+
+### 3. Configure Credentials
+* Double-click the **PostgreSQL tool** and connect it to your database.
+* Double-click the **Chat Model node** and enter your API key (e.g., OpenRouter, Gemini). 
+
+## 💬 Usage Example
+
+Start a chat session in n8n and try the following prompt:
+
+> *"What was the Department of Energy's net cost over the past 5 years? Include a trend chart and write an executive report."*
+
+**Expected Output:**
+The agent will query the database, calculate the YoY growth, provide strategic recommendations, and embed a fully rendered trend line chart comparing the last 5 years of data.
+
+## 🔮 Future Improvements
+
+* **Dynamic Chart Types:** Update the JavaScript node to dynamically switch between `bar`, `line`, and `pie` charts based on a parameter provided by the LLM.
+* **Export to PDF:** Add a downstream branch to convert the Markdown output to PDF and email it to stakeholders.
+* **Mathematical Verification Agent:** Introduce a secondary validation step to mathematically verify the LLM's percentage-change calculations before delivering the report.
+
+---
+*Built as a portfolio project demonstrating robust AI workflow engineering, prompt constraints, and deterministic tool extraction.*
